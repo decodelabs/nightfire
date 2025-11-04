@@ -1,8 +1,8 @@
 <?php
 
 /**
- * @package Coercion
- * @license http://opensource.org/licenses/MIT
+ * Coercion
+ * @license https://opensource.org/licenses/MIT
  */
 
 declare(strict_types=1);
