@@ -10,11 +10,14 @@
         } ],
     "require": {
         "php": "^8.4",
+        "symfony/polyfill-php85": "^1.33",
 
-
+        "decodelabs/archetype": "^0.4.2",
         "decodelabs/coercion": "^0.3.5",
         "decodelabs/exceptional": "^0.6.3",
-        "decodelabs/kingdom": "^0.2.0"
+        "decodelabs/exemplar": "^0.5.10",
+        "decodelabs/kingdom": "^0.2.0",
+        "decodelabs/tagged": "^0.21.3"
     },
     "require-dev": {
         "decodelabs/phpstan-decodelabs": "^0.7.0"
@@ -22,7 +25,10 @@
     "autoload": {
         "psr-4": {
             "DecodeLabs\\Nightfire\\": "src/Nightfire/"
-        }
+        },
+        "classmap": [
+            "src/Nightfire.php"
+        ]
     },
     "extra": {
         "branch-alias": {

@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Coercion
+ * Nightfire
  * @license https://opensource.org/licenses/MIT
  */
 
@@ -9,10 +9,128 @@ declare(strict_types=1);
 
 namespace DecodeLabs;
 
+use DecodeLabs\Exemplar\Element;
 use DecodeLabs\Kingdom\Service;
 use DecodeLabs\Kingdom\ServiceTrait;
+use DecodeLabs\Nightfire\Block;
+use DecodeLabs\Nightfire\BlockData;
+use DecodeLabs\Nightfire\XmlTranslator;
+use ReflectionClass;
 
 class Nightfire implements Service
 {
     use ServiceTrait;
+
+    public function __construct(
+        protected Archetype $archetype
+    ) {
+    }
+
+    /**
+     * @return ?class-string<Block>
+     */
+    public function resolveBlockClass(
+        string $type
+    ): ?string {
+        return $this->archetype->tryResolve(Block::class, $type);
+    }
+
+
+    /**
+     * @param string|array<string,mixed>|Element|BlockData $data
+     */
+    public function inflateBlock(
+        string|array|Element|BlockData $data
+    ): Block {
+        $blockData = $this->inflateBlockData($data);
+
+        if (
+            !$data instanceof BlockData &&
+            !$blockData->checkHash()
+        ) {
+            throw Exceptional::UnexpectedValue(
+                message: 'Block data hash mismatch',
+                data: $data,
+            );
+        }
+
+        if (!$blockClass = $this->resolveBlockClass($blockData->type)) {
+            throw Exceptional::UnexpectedValue(
+                message: 'Block class not found for type: ' . $blockData->type,
+                data: $blockData->type,
+            );
+        }
+
+        $ref = new ReflectionClass($blockClass);
+        $block = $ref->newInstanceWithoutConstructor();
+        $block->__unserialize($blockData->data);
+
+        return $block;
+    }
+
+    /**
+     * @param string|array<string,mixed>|Element|BlockData $data
+     */
+    public function inflateBlockData(
+        string|array|Element|BlockData $data
+    ): BlockData {
+        if ($data instanceof BlockData) {
+            return $data;
+        }
+
+        if (is_string($data)) {
+            if (str_starts_with($data, '<')) {
+                $data = Element::fromXmlString($data);
+            } elseif (str_starts_with($data, '{')) {
+                return BlockData::from(
+                    Coercion::asArray(json_decode($data, true))
+                );
+            } else {
+                throw Exceptional::UnexpectedValue(
+                    message: 'Invalid block data string',
+                    data: $data,
+                );
+            }
+        }
+
+        if (is_array($data)) {
+            return BlockData::from($data);
+        }
+
+        return $this->translateXmlToBlockData($data);
+    }
+
+    public function translateXmlToBlockData(
+        Element $element
+    ): BlockData {
+        $type = $element->getAttribute('type');
+
+        if (empty($type)) {
+            throw Exceptional::UnexpectedValue(
+                message: 'Block type not found in element',
+                data: $element,
+            );
+        }
+
+        if (!$blockClass = $this->resolveBlockClass($type)) {
+            throw Exceptional::UnexpectedValue(
+                message: 'Block class not found for type: ' . $type,
+                data: $type,
+            );
+        }
+
+        if (!is_a($blockClass, XmlTranslator::class, true)) {
+            throw Exceptional::UnexpectedValue(
+                message: 'Block type ' . $type . ' is not a XML translator: ' . $blockClass,
+                data: $blockClass,
+            );
+        }
+
+        return new BlockData(
+            type: $type,
+            version: $element->getAttribute('version') ?? $blockClass::getActiveVersion(),
+            data: $blockClass::readXml($element),
+            hash: $element->getAttribute('hash'),
+        );
+    }
 }
