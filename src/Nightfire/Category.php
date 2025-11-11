@@ -30,4 +30,12 @@ interface Category extends Dumpable
     public function addBlock(
         Block|BlockReference $block
     ): void;
+
+    public function hasBlock(
+        Block|BlockReference $block
+    ): bool;
+
+    public function removeBlock(
+        Block|BlockReference $block
+    ): void;
 }

@@ -74,6 +74,30 @@ trait CategoryTrait
         $this->sorted = false;
     }
 
+    public function hasBlock(
+        string|Block|BlockReference $block
+    ): bool {
+        if ($block instanceof Block) {
+            $block = $block::defineTypeName();
+        } elseif ($block instanceof BlockReference) {
+            $block = $block->type;
+        }
+
+        return isset($this->rawBlocks[$block]);
+    }
+
+    public function removeBlock(
+        string|Block|BlockReference $block
+    ): void {
+        if ($block instanceof Block) {
+            $block = $block::defineTypeName();
+        } elseif ($block instanceof BlockReference) {
+            $block = $block->type;
+        }
+
+        unset($this->rawBlocks[$block]);
+    }
+
 
 
     public function toNuanceEntity(): NuanceEntity
