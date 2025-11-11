@@ -17,6 +17,8 @@
         "decodelabs/exceptional": "^0.6.3",
         "decodelabs/exemplar": "^0.5.10",
         "decodelabs/kingdom": "^0.2.0",
+        "decodelabs/nuance": "^0.2.2",
+        "decodelabs/slingshot": "^0.3.5",
         "decodelabs/tagged": "^0.21.3"
     },
     "require-dev": {

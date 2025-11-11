@@ -7,23 +7,16 @@
 
 declare(strict_types=1);
 
-namespace DecodeLabs\Nightfire;
+namespace DecodeLabs\Nightfire\Data;
 
 use DecodeLabs\Coercion;
 use DecodeLabs\Exceptional;
-use JsonSerializable;
+use DecodeLabs\Nightfire\Data;
+use DecodeLabs\Nightfire\DataTrait;
 
-final class BlockData implements JsonSerializable
+final class Block implements Data
 {
-    public string $hash {
-        get {
-            if (!isset($this->hash)) {
-                $this->hash = $this->generateHash();
-            }
-
-            return $this->hash;
-        }
-    }
+    use DataTrait;
 
     /**
      * @param array<string,mixed> $data
@@ -31,7 +24,7 @@ final class BlockData implements JsonSerializable
     public static function from(
         array $data
     ): static {
-        $type = $data['t'] ?? $data['type'] ?? null;
+        $type = $data['b'] ?? $data['block'] ?? null;
         $version = $data['v'] ?? $data['version'] ?? null;
         $hash = $data['h'] ?? $data['hash'] ?? null;
         $data = $data['d'] ?? $data['data'] ?? null;
@@ -70,26 +63,17 @@ final class BlockData implements JsonSerializable
         }
     }
 
-    private function generateHash(): string
+    /**
+     * @return array<mixed>
+     */
+    private function getHashableData(): array
     {
-        if (false === ($json = json_encode($this->data))) {
-            throw Exceptional::UnexpectedValue(
-                message: 'Failed to encode block data',
-                data: $this->data,
-            );
-        }
-
-        return hash('xxh3', $json);
-    }
-
-    public function checkHash(): bool
-    {
-        return $this->hash === $this->generateHash();
+        return $this->data;
     }
 
     /**
      * @return array{
-     *   t:string,
+     *   b:string,
      *   v:string,
      *   h:string,
      *   d:array<string,mixed>
@@ -98,7 +82,7 @@ final class BlockData implements JsonSerializable
     public function jsonSerialize(): array
     {
         return [
-            't' => $this->type,
+            'b' => $this->type,
             'v' => $this->version,
             'h' => $this->hash,
             'd' => $this->data,

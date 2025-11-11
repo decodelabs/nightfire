@@ -11,6 +11,7 @@ namespace DecodeLabs\Nightfire;
 
 use DecodeLabs\Exceptional;
 use DecodeLabs\Exemplar\Writer;
+use DecodeLabs\Nightfire\Data\Block as BlockData;
 use ReflectionClass;
 
 use function array_first;
@@ -22,7 +23,7 @@ trait BlockTrait
 {
     private const string DefaultVersion = 'initial';
 
-    public static function getTypeName(): string
+    public static function defineTypeName(): string
     {
         $output = static::TypeName;
 
@@ -40,7 +41,12 @@ trait BlockTrait
         return $output;
     }
 
-    public static function getActiveVersion(): string
+    public static function defineTypeWeight(): int
+    {
+        return static::TypeWeight;
+    }
+
+    public static function defineActiveVersion(): string
     {
         $versions = static::Versions;
 
@@ -51,11 +57,25 @@ trait BlockTrait
         return array_first($versions);
     }
 
+    /**
+     * @return list<string>
+     */
+    public static function defineCategoryTypeNames(): array
+    {
+        $output = static::Categories;
+
+        if (empty($output)) {
+            $output = ['Uncategorized'];
+        }
+
+        return $output;
+    }
+
     public function export(): BlockData
     {
         return new BlockData(
-            type: static::getTypeName(),
-            version: static::getActiveVersion(),
+            type: static::defineTypeName(),
+            version: static::defineActiveVersion(),
             data: $this->__serialize(),
         );
     }

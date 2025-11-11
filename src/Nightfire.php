@@ -13,7 +13,10 @@ use DecodeLabs\Exemplar\Element;
 use DecodeLabs\Kingdom\Service;
 use DecodeLabs\Kingdom\ServiceTrait;
 use DecodeLabs\Nightfire\Block;
-use DecodeLabs\Nightfire\BlockData;
+use DecodeLabs\Nightfire\BlockReference;
+use DecodeLabs\Nightfire\Category;
+use DecodeLabs\Nightfire\Category\Uncategorized;
+use DecodeLabs\Nightfire\Data\Block as BlockData;
 use DecodeLabs\Nightfire\XmlTranslator;
 use ReflectionClass;
 
@@ -128,9 +131,81 @@ class Nightfire implements Service
 
         return new BlockData(
             type: $type,
-            version: $element->getAttribute('version') ?? $blockClass::getActiveVersion(),
+            version: $element->getAttribute('version') ?? $blockClass::defineActiveVersion(),
             data: $blockClass::readXml($element),
             hash: $element->getAttribute('hash'),
         );
+    }
+
+
+    public function loadCategory(
+        string $id
+    ): ?Category {
+        if (null === ($class = $this->archetype->tryResolve(Category::class, $id))) {
+            return null;
+        }
+
+        return new $class();
+    }
+
+    /**
+     * @return array<string,Category>
+     */
+    public function loadAllCategories(): array
+    {
+        $output = [];
+
+        foreach ($this->archetype->scanClasses(Category::class) as $class) {
+            $category = new $class();
+
+            if (
+                isset($output[$category->id]) &&
+                $output[$category->id]->weight < $category->weight
+            ) {
+                continue;
+            }
+
+            $output[$category->id] = $category;
+        }
+
+        uasort($output, fn (Category $a, Category $b): int => $a->weight <=> $b->weight);
+        return $output;
+    }
+
+    /**
+     * @param iterable<Block|BlockReference> $blocks
+     * @return array<string,Category>
+     */
+    public function getBlockSelectionList(
+        iterable $blocks
+    ): array {
+        $output = $categories = [];
+
+        foreach ($blocks as $block) {
+            if ($block instanceof BlockReference) {
+                $categoryNames = $block->categoryTypeNames;
+            } else {
+                $categoryNames = $block::defineCategoryTypeNames();
+            }
+
+            foreach ($categoryNames as $catName) {
+                if (isset($categories[$catName])) {
+                    $categories[$catName]->addBlock($block);
+                    continue;
+                }
+
+                $category = $this->loadCategory($catName) ?? new Uncategorized();
+                $category->addBlock($block);
+                $categories[$catName] = $category;
+            }
+        }
+
+        uasort($categories, fn (Category $a, Category $b): int => $a->weight <=> $b->weight);
+
+        foreach ($categories as $category) {
+            $output[$category->id] = $category;
+        }
+
+        return $output;
     }
 }

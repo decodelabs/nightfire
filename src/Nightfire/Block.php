@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace DecodeLabs\Nightfire;
 
+use DecodeLabs\Nightfire\Data\Block as BlockData;
 use DecodeLabs\Tagged\Markup;
 use JsonSerializable;
 use Stringable;
@@ -16,6 +17,7 @@ use Stringable;
 interface Block extends JsonSerializable, Stringable
 {
     public const string TypeName = '';
+    public const int TypeWeight = 0;
 
     /**
      * @var list<string>
@@ -24,8 +26,19 @@ interface Block extends JsonSerializable, Stringable
         'initial'
     ];
 
-    public static function getTypeName(): string;
-    public static function getActiveVersion(): string;
+    /**
+     * @var list<string>
+     */
+    public const array Categories = [];
+
+    public static function defineTypeName(): string;
+    public static function defineTypeWeight(): int;
+    public static function defineActiveVersion(): string;
+
+    /**
+     * @return list<string>
+     */
+    public static function defineCategoryTypeNames(): array;
 
     /**
      * @return array<string,mixed>
