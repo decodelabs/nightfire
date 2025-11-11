@@ -11,10 +11,11 @@ namespace DecodeLabs\Nightfire;
 
 use DecodeLabs\Nightfire\Data\Block as BlockData;
 use DecodeLabs\Tagged\Markup;
-use JsonSerializable;
-use Stringable;
 
-interface Block extends JsonSerializable, Stringable
+/**
+ * @extends DataInterchange<BlockData>
+ */
+interface Block extends DataInterchange
 {
     public const string TypeName = '';
     public const int TypeWeight = 0;
@@ -53,12 +54,6 @@ interface Block extends JsonSerializable, Stringable
     ): void;
 
     public function export(): BlockData;
-
-    /**
-     * @return array<string,mixed>
-     */
-    public function jsonSerialize(): array;
-
 
     public function render(): ?Markup;
 }

@@ -11,6 +11,7 @@ namespace DecodeLabs\Nightfire;
 
 use DecodeLabs\Exceptional;
 use DecodeLabs\Exemplar\Writer;
+use DecodeLabs\Nightfire\Block\XmlTranslator;
 use DecodeLabs\Nightfire\Data\Block as BlockData;
 use ReflectionClass;
 
@@ -88,24 +89,26 @@ trait BlockTrait
         return $this->export()->jsonSerialize();
     }
 
-    public function __toString(): string
+    public function deflateToJson(): string
     {
         $blockData = $this->export();
+        $output = json_encode($blockData);
 
-        if (!$this instanceof XmlTranslator) {
-            $output = json_encode($blockData);
-
-            if ($output === false) {
-                throw Exceptional::UnexpectedValue(
-                    message: 'Failed to encode block data',
-                    data: $blockData,
-                );
-            }
-
-            return $output;
+        if ($output === false) {
+            throw Exceptional::UnexpectedValue(
+                message: 'Failed to encode block data',
+                data: $blockData,
+            );
         }
 
-        $writer = Writer::create();
+        return $output;
+    }
+
+    public function deflateToXml(
+        ?Writer $writer = null
+    ): string {
+        $blockData = $this->export();
+        $writer ??= Writer::create();
 
         $writer->startElement('block', [
             'type' => $blockData->type,
@@ -113,7 +116,11 @@ trait BlockTrait
             'hash' => $blockData->hash,
         ]);
 
-        $this::writeXml($writer, $blockData->data);
+        if ($this instanceof XmlTranslator) {
+            $this::writeXml($writer, $blockData->data);
+        } else {
+            $writer->setAttribute('data', json_encode($blockData->data));
+        }
 
         $writer->endElement();
         return $writer->__toString();

@@ -14,7 +14,7 @@ use DecodeLabs\Exceptional;
 use DecodeLabs\Nightfire\Data;
 use DecodeLabs\Nightfire\DataTrait;
 
-final class Slot implements Data
+final class Area implements Data
 {
     use DataTrait;
 
@@ -24,15 +24,15 @@ final class Slot implements Data
     public static function from(
         array $data
     ): static {
-        $id = $data['s'] ?? $data['slot'] ?? null;
-        $blocks = $data['b'] ?? $data['blocks'] ?? null;
+        $id = $data['a'] ?? $data['area'] ?? null;
+        $blocks = $data['bx'] ?? $data['blocks'] ?? null;
 
         if (
             $id === null ||
             $blocks === null
         ) {
             throw Exceptional::UnexpectedValue(
-                message: 'Missing required slot data',
+                message: 'Missing required area data',
                 data: $data,
             );
         }
@@ -70,8 +70,8 @@ final class Slot implements Data
 
     /**
      * @return array{
-     *   s:string,
-     *   b:list<array{
+     *   a:string,
+     *   bx:list<array{
      *     b:string,
      *     v:string,
      *     h:string,
@@ -82,8 +82,8 @@ final class Slot implements Data
     public function jsonSerialize(): array
     {
         return [
-            's' => $this->id,
-            'b' => array_map(
+            'a' => $this->id,
+            'bx' => array_map(
                 fn (Block $block) => $block->jsonSerialize(),
                 $this->blocks,
             ),

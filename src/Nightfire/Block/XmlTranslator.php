@@ -7,7 +7,7 @@
 
 declare(strict_types=1);
 
-namespace DecodeLabs\Nightfire;
+namespace DecodeLabs\Nightfire\Block;
 
 use DecodeLabs\Exemplar\Element;
 use DecodeLabs\Exemplar\Writer;

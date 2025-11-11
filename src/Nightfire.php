@@ -12,12 +12,15 @@ namespace DecodeLabs;
 use DecodeLabs\Exemplar\Element;
 use DecodeLabs\Kingdom\Service;
 use DecodeLabs\Kingdom\ServiceTrait;
+use DecodeLabs\Nightfire\Area;
+use DecodeLabs\Nightfire\Area\XmlTranslator as AreaXmlTranslator;
 use DecodeLabs\Nightfire\Block;
+use DecodeLabs\Nightfire\Block\XmlTranslator as BlockXmlTranslator;
 use DecodeLabs\Nightfire\BlockReference;
 use DecodeLabs\Nightfire\Category;
 use DecodeLabs\Nightfire\Category\Uncategorized;
+use DecodeLabs\Nightfire\Data\Area as AreaData;
 use DecodeLabs\Nightfire\Data\Block as BlockData;
-use DecodeLabs\Nightfire\XmlTranslator;
 use ReflectionClass;
 
 class Nightfire implements Service
@@ -71,6 +74,7 @@ class Nightfire implements Service
         return $block;
     }
 
+
     /**
      * @param string|array<string,mixed>|Element|BlockData $data
      */
@@ -122,20 +126,113 @@ class Nightfire implements Service
             );
         }
 
-        if (!is_a($blockClass, XmlTranslator::class, true)) {
-            throw Exceptional::UnexpectedValue(
-                message: 'Block type ' . $type . ' is not a XML translator: ' . $blockClass,
-                data: $blockClass,
-            );
+        if (is_a($blockClass, BlockXmlTranslator::class, true)) {
+            $data = $blockClass::readXml($element);
+        } else {
+            if (null === ($dataString = $element->getAttribute('data'))) {
+                $data = [];
+            } else {
+                $data = Coercion::asArray(json_decode($dataString, true));
+            }
         }
 
         return new BlockData(
             type: $type,
             version: $element->getAttribute('version') ?? $blockClass::defineActiveVersion(),
-            data: $blockClass::readXml($element),
+            data: $data,
             hash: $element->getAttribute('hash'),
         );
     }
+
+
+
+
+
+    /**
+     * @param string|array<string,mixed>|Element|AreaData $data
+     */
+    public function inflateArea(
+        string|array|Element|AreaData $data
+    ): Area {
+        $areaData = $this->inflateAreaData($data);
+
+        if (
+            !$data instanceof AreaData &&
+            !$areaData->checkHash()
+        ) {
+            throw Exceptional::UnexpectedValue(
+                message: 'Area data hash mismatch',
+                data: $data,
+            );
+        }
+
+        return new Area(
+            id: $areaData->id,
+            blocks: array_map(fn (BlockData $blockData) => $this->inflateBlock($blockData), $areaData->blocks),
+        );
+    }
+
+    /**
+     * @param string|array<string,mixed>|Element|AreaData $data
+     */
+    public function inflateAreaData(
+        string|array|Element|AreaData $data
+    ): AreaData {
+        if ($data instanceof AreaData) {
+            return $data;
+        }
+
+        if (is_string($data)) {
+            if (str_starts_with($data, '<')) {
+                $data = Element::fromXmlString($data);
+            } elseif (str_starts_with($data, '{')) {
+                return AreaData::from(
+                    Coercion::asArray(json_decode($data, true))
+                );
+            } else {
+                throw Exceptional::UnexpectedValue(
+                    message: 'Invalid area data string',
+                    data: $data,
+                );
+            }
+        }
+
+        if (is_array($data)) {
+            return AreaData::from($data);
+        }
+
+        return $this->translateXmlToAreaData($data);
+    }
+
+    public function translateXmlToAreaData(
+        Element $element
+    ): AreaData {
+        $name = $element->getTagName();
+
+        if ($name === 'area') {
+            $blocks = [];
+
+            foreach ($element->getChildrenOfType('block') as $blockElement) {
+                $blocks[] = $this->translateXmlToBlockData($blockElement);
+            }
+
+            return new AreaData(
+                id: Coercion::tryString($element->getAttribute('id')) ?? 'default',
+                blocks: $blocks
+            );
+        }
+
+
+        if (null === ($translatorClass = $this->archetype->tryResolve(AreaXmlTranslator::class, ucfirst($name)))) {
+            throw Exceptional::UnexpectedValue(
+                message: 'Area translator class not found for type: ' . $name,
+                data: $name,
+            );
+        }
+
+        return $translatorClass::readXml($element, $this->translateXmlToBlockData(...));
+    }
+
 
 
     public function loadCategory(
