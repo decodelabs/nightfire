@@ -16,11 +16,14 @@ use DecodeLabs\Nightfire\Area;
 use DecodeLabs\Nightfire\Area\XmlTranslator as AreaXmlTranslator;
 use DecodeLabs\Nightfire\Block;
 use DecodeLabs\Nightfire\Block\XmlTranslator as BlockXmlTranslator;
+use DecodeLabs\Nightfire\BlockGroup;
 use DecodeLabs\Nightfire\BlockReference;
 use DecodeLabs\Nightfire\Category;
 use DecodeLabs\Nightfire\Category\Uncategorized;
+use DecodeLabs\Nightfire\Collection;
 use DecodeLabs\Nightfire\Data\Area as AreaData;
 use DecodeLabs\Nightfire\Data\Block as BlockData;
+use Generator;
 use ReflectionClass;
 
 class Nightfire implements Service
@@ -41,6 +44,15 @@ class Nightfire implements Service
         return $this->archetype->tryResolve(Block::class, $type);
     }
 
+    /**
+     * @return Generator<BlockReference>
+     */
+    public function loadAllBlockReferences(): Generator
+    {
+        foreach ($this->archetype->scanClasses(Block::class) as $class) {
+            yield new BlockReference($class);
+        }
+    }
 
     /**
      * @param string|array<string,mixed>|Element|BlockData $data
@@ -235,7 +247,7 @@ class Nightfire implements Service
 
 
 
-    public function loadCategory(
+    public function tryLoadCategory(
         string $id
     ): ?Category {
         if (null === ($class = $this->archetype->tryResolve(Category::class, $id))) {
@@ -271,12 +283,12 @@ class Nightfire implements Service
 
     /**
      * @param iterable<Block|BlockReference> $blocks
-     * @return array<string,Category>
+     * @return array<string,BlockGroup<Category>>
      */
-    public function getBlockSelectionList(
+    public function buildBlockSelectionList(
         iterable $blocks
     ): array {
-        $output = $categories = [];
+        $output = $groups = [];
 
         foreach ($blocks as $block) {
             if ($block instanceof BlockReference) {
@@ -286,23 +298,108 @@ class Nightfire implements Service
             }
 
             foreach ($categoryNames as $catName) {
-                if (isset($categories[$catName])) {
-                    $categories[$catName]->addBlock($block);
+                if (isset($groups[$catName])) {
+                    $groups[$catName]->add($block);
                     continue;
                 }
 
-                $category = $this->loadCategory($catName) ?? new Uncategorized();
-                $category->addBlock($block);
-                $categories[$catName] = $category;
+                $category = $this->tryLoadCategory($catName) ?? new Uncategorized();
+                $catName = $category->defineTypeName();
+
+                $group = new BlockGroup(
+                    descriptor: $category,
+                );
+
+                $group->add($block);
+                $groups[$catName] = $group;
             }
         }
 
-        uasort($categories, fn (Category $a, Category $b): int => $a->weight <=> $b->weight);
+        uasort(
+            $groups,
+            fn (
+                BlockGroup $a,
+                BlockGroup $b
+            ): int =>
+                $a->weight <=> $b->weight
+        );
 
-        foreach ($categories as $category) {
-            $output[$category->id] = $category;
+        foreach ($groups as $group) {
+            $output[$group->id] = $group;
         }
 
         return $output;
+    }
+
+
+
+
+    public function tryLoadCollection(
+        string $id
+    ): ?Collection {
+        if (null === ($class = $this->archetype->tryResolve(Collection::class, $id))) {
+            return null;
+        }
+
+        return new $class();
+    }
+
+    /**
+     * @return array<string,Collection>
+     */
+    public function loadAllCollections(): array
+    {
+        $output = [];
+
+        foreach ($this->archetype->scanClasses(Collection::class) as $class) {
+            $collection = new $class();
+
+            if (
+                isset($output[$collection->id]) &&
+                $output[$collection->id]->weight < $collection->weight
+            ) {
+                continue;
+            }
+
+            $output[$collection->id] = $collection;
+        }
+
+        uasort($output, fn (Collection $a, Collection $b): int => $a->weight <=> $b->weight);
+        return $output;
+    }
+
+    /**
+     * @return BlockGroup<Collection>
+     */
+    public function buildCollectionGroup(
+        string|Collection $collection
+    ): BlockGroup {
+        if (is_string($collection)) {
+            $collection = $this->tryLoadCollection($collection);
+        }
+
+        if ($collection === null) {
+            throw Exceptional::UnexpectedValue(
+                message: 'Collection not found',
+                data: $collection,
+            );
+        }
+
+        $collectionId = $collection->defineTypeName();
+
+        $group = new BlockGroup(
+            descriptor: $collection,
+        );
+
+        foreach ($this->loadAllBlockReferences() as $blockReference) {
+            if (
+                in_array($collectionId, $blockReference->collectionTypeNames) &&
+                $collection::acceptsBlock($blockReference)
+            ) {
+                $group->add($blockReference);
+            }
+        }
+
+        return $group;
     }
 }

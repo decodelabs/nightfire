@@ -33,6 +33,13 @@ class BlockReference implements Dumpable
         get => $this->class::defineCategoryTypeNames();
     }
 
+    /**
+     * @var list<string>
+     */
+    public array $collectionTypeNames {
+        get => $this->class::defineCollectionTypeNames();
+    }
+
     public function __construct(
         public readonly string $class,
     ) {

@@ -17,9 +17,9 @@ use function explode;
 use function str_contains;
 
 /**
- * @phpstan-require-implements Category
+ * @phpstan-require-implements Collection
  */
-trait CategoryTrait
+trait CollectionTrait
 {
     public string $id {
         get => $this->defineTypeName();
@@ -32,8 +32,8 @@ trait CategoryTrait
         if ($output === '') {
             $class = static::class;
 
-            if (str_contains($class, '\\Category\\')) {
-                $parts = explode('\\Category\\', $class);
+            if (str_contains($class, '\\Collection\\')) {
+                $parts = explode('\\Collection\\', $class);
                 $output = array_pop($parts);
             } else {
                 $output = new ReflectionClass(static::class)->getShortName();
@@ -41,15 +41,6 @@ trait CategoryTrait
         }
 
         return $output;
-    }
-
-    public static function acceptsBlock(
-        BlockReference $blockReference
-    ): bool {
-        return in_array(
-            static::defineTypeName(),
-            $blockReference->categoryTypeNames
-        );
     }
 
     public function __construct()
@@ -60,9 +51,7 @@ trait CategoryTrait
     {
         $entity = new NuanceEntity($this);
         $entity->meta = [
-            'id' => $this->id,
             'name' => $this->name,
-            'weight' => $this->weight,
             'type' => $this->defineTypeName(),
         ];
 

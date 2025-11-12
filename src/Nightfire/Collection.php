@@ -12,7 +12,7 @@ namespace DecodeLabs\Nightfire;
 use DecodeLabs\Nightfire\BlockGroup\Descriptor as BlockGroupDescriptor;
 use DecodeLabs\Nuance\Dumpable;
 
-interface Category extends
+interface Collection extends
     BlockGroupDescriptor,
     TypeNameProvider,
     Dumpable

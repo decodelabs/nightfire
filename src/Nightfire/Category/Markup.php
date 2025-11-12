@@ -16,7 +16,6 @@ class Markup implements Category
 {
     use CategoryTrait;
 
-    public string $id { get => 'markup'; }
     public string $name { get => 'Markup editors'; }
     public int $weight { get => 1; }
 }

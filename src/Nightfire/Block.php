@@ -15,9 +15,10 @@ use DecodeLabs\Tagged\Markup;
 /**
  * @extends DataInterchange<BlockData>
  */
-interface Block extends DataInterchange
+interface Block extends
+    DataInterchange,
+    TypeNameProvider
 {
-    public const string TypeName = '';
     public const int TypeWeight = 0;
 
     /**
@@ -32,7 +33,11 @@ interface Block extends DataInterchange
      */
     public const array Categories = [];
 
-    public static function defineTypeName(): string;
+    /**
+     * @var list<string>
+     */
+    public const array Collections = [];
+
     public static function defineTypeWeight(): int;
     public static function defineActiveVersion(): string;
 
@@ -40,6 +45,11 @@ interface Block extends DataInterchange
      * @return list<string>
      */
     public static function defineCategoryTypeNames(): array;
+
+    /**
+     * @return list<string>
+     */
+    public static function defineCollectionTypeNames(): array;
 
     /**
      * @return array<string,mixed>

@@ -16,7 +16,6 @@ class Uncategorized implements Category
 {
     use CategoryTrait;
 
-    public string $id { get => 'uncategorized'; }
     public string $name { get => 'Uncategorized'; }
     public int $weight { get => 1000; }
 }

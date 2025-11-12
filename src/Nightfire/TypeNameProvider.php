@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace DecodeLabs\Nightfire;
 
-interface Strategy extends TypeNameProvider
+interface TypeNameProvider
 {
-    public int $maxBlocks { get; }
+    public const string TypeName = '';
+
+    public static function defineTypeName(): string;
 }

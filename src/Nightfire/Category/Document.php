@@ -16,7 +16,6 @@ class Document implements Category
 {
     use CategoryTrait;
 
-    public string $id { get => 'document'; }
     public string $name { get => 'Document structure'; }
     public int $weight { get => 20; }
 }

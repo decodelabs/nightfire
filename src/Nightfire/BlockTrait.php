@@ -72,6 +72,14 @@ trait BlockTrait
         return $output;
     }
 
+    /**
+     * @return list<string>
+     */
+    public static function defineCollectionTypeNames(): array
+    {
+        return static::Collections;
+    }
+
     public function export(): BlockData
     {
         return new BlockData(

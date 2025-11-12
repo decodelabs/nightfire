@@ -16,7 +16,6 @@ class Media implements Category
 {
     use CategoryTrait;
 
-    public string $id { get => 'media'; }
     public string $name { get => 'Media'; }
     public int $weight { get => 10; }
 }
