@@ -2,7 +2,7 @@
     "name": "decodelabs/nightfire",
     "description": "Composable view blocks",
     "type": "library",
-    "keywords": [],
+    "keywords": [ ],
     "license": "MIT",
     "authors": [
         {
@@ -24,7 +24,7 @@
         "decodelabs/tagged": "^0.21.3"
     },
     "require-dev": {
-        "decodelabs/chorus": "^0.1",
+        "decodelabs/chorus": ">0",
         "decodelabs/phpstan-decodelabs": "^0.7.0"
     },
     "autoload": {
