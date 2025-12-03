@@ -40,9 +40,9 @@ final class Area implements Data
         $blockList = [];
 
         foreach (Coercion::asArray($blocks) as $block) {
-            $blockList[] = Block::from(
-                Coercion::asArray($block)
-            );
+            /** @var array<string,mixed> $blockData */
+            $blockData = Coercion::asArray($block);
+            $blockList[] = Block::from($blockData);
         }
 
         return new static(

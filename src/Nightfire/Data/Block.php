@@ -41,11 +41,14 @@ final class Block implements Data
             );
         }
 
+        /** @var array<string,mixed> $dataArray */
+        $dataArray = Coercion::asArray($data);
+
         return new static(
             type: Coercion::asString($type),
             version: Coercion::asString($version),
             hash: Coercion::asString($hash),
-            data: Coercion::asArray($data),
+            data: $dataArray,
         );
     }
 

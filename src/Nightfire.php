@@ -23,6 +23,13 @@ use DecodeLabs\Nightfire\Category\Uncategorized;
 use DecodeLabs\Nightfire\Collection;
 use DecodeLabs\Nightfire\Data\Area as AreaData;
 use DecodeLabs\Nightfire\Data\Block as BlockData;
+use DecodeLabs\Nightfire\Data\Layout as LayoutData;
+use DecodeLabs\Nightfire\Layout;
+use DecodeLabs\Nightfire\Layout\XmlTranslator as LayoutXmlTranslator;
+use DecodeLabs\Nightfire\LayoutReference;
+use DecodeLabs\Nightfire\LayoutValidationResult;
+use DecodeLabs\Nightfire\Strategy;
+use DecodeLabs\Nightfire\ValidationError;
 use Generator;
 use ReflectionClass;
 
@@ -101,9 +108,9 @@ class Nightfire implements Service
             if (str_starts_with($data, '<')) {
                 $data = Element::fromXmlString($data);
             } elseif (str_starts_with($data, '{')) {
-                return BlockData::from(
-                    Coercion::asArray(json_decode($data, true))
-                );
+                /** @var array<string,mixed> $decoded */
+                $decoded = Coercion::asArray(json_decode($data, true));
+                return BlockData::from($decoded);
             } else {
                 throw Exceptional::UnexpectedValue(
                     message: 'Invalid block data string',
@@ -144,6 +151,7 @@ class Nightfire implements Service
             if (null === ($dataString = $element->getAttribute('data'))) {
                 $data = [];
             } else {
+                /** @var array<string,mixed> $data */
                 $data = Coercion::asArray(json_decode($dataString, true));
             }
         }
@@ -198,9 +206,9 @@ class Nightfire implements Service
             if (str_starts_with($data, '<')) {
                 $data = Element::fromXmlString($data);
             } elseif (str_starts_with($data, '{')) {
-                return AreaData::from(
-                    Coercion::asArray(json_decode($data, true))
-                );
+                /** @var array<string,mixed> $decoded */
+                $decoded = Coercion::asArray(json_decode($data, true));
+                return AreaData::from($decoded);
             } else {
                 throw Exceptional::UnexpectedValue(
                     message: 'Invalid area data string',
@@ -401,5 +409,286 @@ class Nightfire implements Service
         }
 
         return $group;
+    }
+
+
+
+    /**
+     * @return ?class-string<Layout>
+     */
+    public function resolveLayoutClass(
+        string $type
+    ): ?string {
+        return $this->archetype->tryResolve(Layout::class, $type);
+    }
+
+    /**
+     * @return Generator<LayoutReference>
+     */
+    public function loadAllLayoutReferences(): Generator
+    {
+        foreach ($this->archetype->scanClasses(Layout::class) as $class) {
+            yield new LayoutReference($class);
+        }
+    }
+
+    /**
+     * @param string|array<string,mixed>|Element|LayoutData $data
+     */
+    public function inflateLayout(
+        string|array|Element|LayoutData $data
+    ): Layout {
+        $layoutData = $this->inflateLayoutData($data);
+
+        if (
+            !$data instanceof LayoutData &&
+            !$layoutData->checkHash()
+        ) {
+            throw Exceptional::UnexpectedValue(
+                message: 'Layout data hash mismatch',
+                data: $data,
+            );
+        }
+
+        if (!$layoutClass = $this->resolveLayoutClass($layoutData->type)) {
+            throw Exceptional::UnexpectedValue(
+                message: 'Layout class not found for type: ' . $layoutData->type,
+                data: $layoutData->type,
+            );
+        }
+
+        $ref = new ReflectionClass($layoutClass);
+        $layout = $ref->newInstanceWithoutConstructor();
+
+        foreach ($layoutData->areas as $areaData) {
+            $area = $this->inflateArea($areaData);
+            $layout->addArea($area);
+        }
+
+        return $layout;
+    }
+
+    /**
+     * @param string|array<string,mixed>|Element|LayoutData $data
+     */
+    public function inflateLayoutData(
+        string|array|Element|LayoutData $data
+    ): LayoutData {
+        if ($data instanceof LayoutData) {
+            return $data;
+        }
+
+        if (is_string($data)) {
+            if (str_starts_with($data, '<')) {
+                $data = Element::fromXmlString($data);
+            } elseif (str_starts_with($data, '{')) {
+                /** @var array<string,mixed> $decoded */
+                $decoded = Coercion::asArray(json_decode($data, true));
+                return LayoutData::from($decoded);
+            } else {
+                throw Exceptional::UnexpectedValue(
+                    message: 'Invalid layout data string',
+                    data: $data,
+                );
+            }
+        }
+
+        if (is_array($data)) {
+            return LayoutData::from($data);
+        }
+
+        return $this->translateXmlToLayoutData($data);
+    }
+
+    public function translateXmlToLayoutData(
+        Element $element
+    ): LayoutData {
+        $name = $element->getTagName();
+
+        if ($name === 'layout') {
+            $type = $element->getAttribute('type');
+
+            if (empty($type)) {
+                throw Exceptional::UnexpectedValue(
+                    message: 'Layout type not found in element',
+                    data: $element,
+                );
+            }
+
+            $areas = [];
+
+            foreach ($element->getChildrenOfType('area') as $areaElement) {
+                $areas[] = $this->translateXmlToAreaData($areaElement);
+            }
+
+            return new LayoutData(
+                type: $type,
+                areas: $areas
+            );
+        }
+
+        if (null === ($translatorClass = $this->archetype->tryResolve(LayoutXmlTranslator::class, ucfirst($name)))) {
+            throw Exceptional::UnexpectedValue(
+                message: 'Layout translator class not found for type: ' . $name,
+                data: $name,
+            );
+        }
+
+        return $translatorClass::readXml($element, $this->translateXmlToAreaData(...));
+    }
+
+    public function validateLayout(
+        Layout $layout
+    ): LayoutValidationResult {
+        $areaErrors = [];
+        $valid = true;
+
+        // Get area strategies from layout definition
+        $areaStrategies = $layout::defineAreas();
+
+        foreach ($layout->areas as $area) {
+            // If no strategy defined for this area, skip validation (anything goes)
+            if (!isset($areaStrategies[$area->id])) {
+                continue;
+            }
+
+            $strategy = $areaStrategies[$area->id];
+            $errors = [];
+
+            // Check min blocks
+            if (count($area->blocks) < $strategy->minBlocks) {
+                $errors[] = new ValidationError(
+                    areaId: $area->id,
+                    blockIndex: null,
+                    rule: 'minBlocks',
+                    message: sprintf(
+                        'Area "%s" requires at least %d block%s but only has %d',
+                        $area->id,
+                        $strategy->minBlocks,
+                        $strategy->minBlocks === 1 ? '' : 's',
+                        count($area->blocks)
+                    ),
+                );
+            }
+
+            // Check max blocks
+            if (count($area->blocks) > $strategy->maxBlocks) {
+                $errors[] = new ValidationError(
+                    areaId: $area->id,
+                    blockIndex: null,
+                    rule: 'maxBlocks',
+                    message: sprintf(
+                        'Area "%s" allows a maximum of %d block%s but has %d',
+                        $area->id,
+                        $strategy->maxBlocks,
+                        $strategy->maxBlocks === 1 ? '' : 's',
+                        count($area->blocks)
+                    ),
+                );
+            }
+
+            // Validate individual blocks
+            foreach ($area->blocks as $index => $block) {
+                $blockType = $block::defineTypeName();
+                $blockRef = new BlockReference($block::class);
+
+                // Check block blacklist
+                if (
+                    !empty($strategy->blockBlacklist) &&
+                    in_array($blockType, $strategy->blockBlacklist)
+                ) {
+                    $errors[] = new ValidationError(
+                        areaId: $area->id,
+                        blockIndex: $index,
+                        rule: 'blockBlacklist',
+                        message: sprintf(
+                            'Block type "%s" is not allowed in area "%s"',
+                            $blockType,
+                            $area->id
+                        ),
+                    );
+                }
+
+                // Check index blacklist
+                if (
+                    isset($strategy->indexBlacklist[$index]) &&
+                    in_array($blockType, $strategy->indexBlacklist[$index])
+                ) {
+                    $errors[] = new ValidationError(
+                        areaId: $area->id,
+                        blockIndex: $index,
+                        rule: 'indexBlacklist',
+                        message: sprintf(
+                            'Block type "%s" is not allowed at position %d in area "%s"',
+                            $blockType,
+                            $index,
+                            $area->id
+                        ),
+                    );
+                }
+
+                // Check allowed collections
+                if (!empty($strategy->allowedCollections)) {
+                    $blockCollections = $blockRef->collectionTypeNames;
+                    $hasAllowedCollection = false;
+
+                    foreach ($blockCollections as $collection) {
+                        if (in_array($collection, $strategy->allowedCollections)) {
+                            $hasAllowedCollection = true;
+                            break;
+                        }
+                    }
+
+                    if (!$hasAllowedCollection) {
+                        $errors[] = new ValidationError(
+                            areaId: $area->id,
+                            blockIndex: $index,
+                            rule: 'allowedCollections',
+                            message: sprintf(
+                                'Block type "%s" must belong to one of these collections: %s',
+                                $blockType,
+                                implode(', ', $strategy->allowedCollections)
+                            ),
+                        );
+                    }
+                }
+
+                // Check allowed categories
+                if (!empty($strategy->allowedCategories)) {
+                    $blockCategories = $blockRef->categoryTypeNames;
+                    $hasAllowedCategory = false;
+
+                    foreach ($blockCategories as $category) {
+                        if (in_array($category, $strategy->allowedCategories)) {
+                            $hasAllowedCategory = true;
+                            break;
+                        }
+                    }
+
+                    if (!$hasAllowedCategory) {
+                        $errors[] = new ValidationError(
+                            areaId: $area->id,
+                            blockIndex: $index,
+                            rule: 'allowedCategories',
+                            message: sprintf(
+                                'Block type "%s" must belong to one of these categories: %s',
+                                $blockType,
+                                implode(', ', $strategy->allowedCategories)
+                            ),
+                        );
+                    }
+                }
+            }
+
+            if (!empty($errors)) {
+                $areaErrors[$area->id] = $errors;
+                $valid = false;
+            }
+        }
+
+        return new LayoutValidationResult(
+            valid: $valid,
+            areaErrors: $areaErrors,
+        );
     }
 }

@@ -12,4 +12,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Implemented initial Area interface structure
 - Added Collection interface system
 - Split block lists into BlockGroup and Descriptor interfaces
-
+- Added Layout interface structure
