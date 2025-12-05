@@ -43,6 +43,21 @@ trait LayoutTrait
         return $output;
     }
 
+    /**
+     * @param ?list<Area> $areas
+     */
+    public function __construct(
+        ?array $areas = null,
+    ) {
+        if ($areas !== null) {
+            foreach ($areas as $area) {
+                $this->addArea($area);
+            }
+        }
+    }
+
+
+
     public function addArea(
         Area $area
     ): void {

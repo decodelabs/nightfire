@@ -21,7 +21,7 @@ class LayoutReference implements Dumpable
     /**
      * @var array<string,Strategy>
      */
-    public array $areaStrategies {
+    public array $areas {
         get => $this->class::defineAreas();
     }
 
@@ -41,9 +41,9 @@ class LayoutReference implements Dumpable
         $entity->meta = [
             'type' => $this->type,
             'class' => $this->class,
-            'areaStrategies' => array_map(
-                fn (Strategy $strategy) => $strategy::defineTypeName(),
-                $this->areaStrategies
+            'areas' => array_map(
+                fn (Strategy $strategy) => $strategy::class,
+                $this->areas
             ),
         ];
 

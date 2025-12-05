@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace DecodeLabs\Nightfire;
 
+use DecodeLabs\Nightfire\Block;
+
 interface Strategy extends TypeNameProvider
 {
     public ?int $maxBlocks { get; }
@@ -33,4 +35,14 @@ interface Strategy extends TypeNameProvider
      * @var array<int,list<string>>
      */
     public ?array $indexBlacklist { get; }
+
+    /**
+     * Validate an area against this strategy.
+     *
+     * @return list<ValidationError>
+     */
+    public function validate(
+        Area $area,
+        string $areaId
+    ): array;
 }

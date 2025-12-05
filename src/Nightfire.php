@@ -547,138 +547,26 @@ class Nightfire implements Service
         $areaStrategies = $layout::defineAreas();
 
         foreach ($layout->areas as $area) {
-            // If no strategy defined for this area, skip validation (anything goes)
+            // If no strategy defined for this area, it's an error
             if (!isset($areaStrategies[$area->id])) {
+                $areaErrors[$area->id] = [
+                    new ValidationError(
+                        areaId: $area->id,
+                        blockIndex: null,
+                        rule: 'missingStrategy',
+                        message: sprintf(
+                            'Area "%s" is not defined in layout "%s"',
+                            $area->id,
+                            $layout::defineTypeName()
+                        ),
+                    ),
+                ];
+                $valid = false;
                 continue;
             }
 
             $strategy = $areaStrategies[$area->id];
-            $errors = [];
-
-            // Check min blocks
-            if (count($area->blocks) < $strategy->minBlocks) {
-                $errors[] = new ValidationError(
-                    areaId: $area->id,
-                    blockIndex: null,
-                    rule: 'minBlocks',
-                    message: sprintf(
-                        'Area "%s" requires at least %d block%s but only has %d',
-                        $area->id,
-                        $strategy->minBlocks,
-                        $strategy->minBlocks === 1 ? '' : 's',
-                        count($area->blocks)
-                    ),
-                );
-            }
-
-            // Check max blocks
-            if (count($area->blocks) > $strategy->maxBlocks) {
-                $errors[] = new ValidationError(
-                    areaId: $area->id,
-                    blockIndex: null,
-                    rule: 'maxBlocks',
-                    message: sprintf(
-                        'Area "%s" allows a maximum of %d block%s but has %d',
-                        $area->id,
-                        $strategy->maxBlocks,
-                        $strategy->maxBlocks === 1 ? '' : 's',
-                        count($area->blocks)
-                    ),
-                );
-            }
-
-            // Validate individual blocks
-            foreach ($area->blocks as $index => $block) {
-                $blockType = $block::defineTypeName();
-                $blockRef = new BlockReference($block::class);
-
-                // Check block blacklist
-                if (
-                    !empty($strategy->blockBlacklist) &&
-                    in_array($blockType, $strategy->blockBlacklist)
-                ) {
-                    $errors[] = new ValidationError(
-                        areaId: $area->id,
-                        blockIndex: $index,
-                        rule: 'blockBlacklist',
-                        message: sprintf(
-                            'Block type "%s" is not allowed in area "%s"',
-                            $blockType,
-                            $area->id
-                        ),
-                    );
-                }
-
-                // Check index blacklist
-                if (
-                    isset($strategy->indexBlacklist[$index]) &&
-                    in_array($blockType, $strategy->indexBlacklist[$index])
-                ) {
-                    $errors[] = new ValidationError(
-                        areaId: $area->id,
-                        blockIndex: $index,
-                        rule: 'indexBlacklist',
-                        message: sprintf(
-                            'Block type "%s" is not allowed at position %d in area "%s"',
-                            $blockType,
-                            $index,
-                            $area->id
-                        ),
-                    );
-                }
-
-                // Check allowed collections
-                if (!empty($strategy->allowedCollections)) {
-                    $blockCollections = $blockRef->collectionTypeNames;
-                    $hasAllowedCollection = false;
-
-                    foreach ($blockCollections as $collection) {
-                        if (in_array($collection, $strategy->allowedCollections)) {
-                            $hasAllowedCollection = true;
-                            break;
-                        }
-                    }
-
-                    if (!$hasAllowedCollection) {
-                        $errors[] = new ValidationError(
-                            areaId: $area->id,
-                            blockIndex: $index,
-                            rule: 'allowedCollections',
-                            message: sprintf(
-                                'Block type "%s" must belong to one of these collections: %s',
-                                $blockType,
-                                implode(', ', $strategy->allowedCollections)
-                            ),
-                        );
-                    }
-                }
-
-                // Check allowed categories
-                if (!empty($strategy->allowedCategories)) {
-                    $blockCategories = $blockRef->categoryTypeNames;
-                    $hasAllowedCategory = false;
-
-                    foreach ($blockCategories as $category) {
-                        if (in_array($category, $strategy->allowedCategories)) {
-                            $hasAllowedCategory = true;
-                            break;
-                        }
-                    }
-
-                    if (!$hasAllowedCategory) {
-                        $errors[] = new ValidationError(
-                            areaId: $area->id,
-                            blockIndex: $index,
-                            rule: 'allowedCategories',
-                            message: sprintf(
-                                'Block type "%s" must belong to one of these categories: %s',
-                                $blockType,
-                                implode(', ', $strategy->allowedCategories)
-                            ),
-                        );
-                    }
-                }
-            }
+            $errors = $strategy->validate($area, $area->id);
 
             if (!empty($errors)) {
                 $areaErrors[$area->id] = $errors;
