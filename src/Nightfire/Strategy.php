@@ -9,8 +9,6 @@ declare(strict_types=1);
 
 namespace DecodeLabs\Nightfire;
 
-use DecodeLabs\Nightfire\Block;
-
 interface Strategy extends TypeNameProvider
 {
     public ?int $maxBlocks { get; }

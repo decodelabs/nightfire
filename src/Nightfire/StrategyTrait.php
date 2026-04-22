@@ -9,9 +9,6 @@ declare(strict_types=1);
 
 namespace DecodeLabs\Nightfire;
 
-use DecodeLabs\Nightfire\Block;
-use DecodeLabs\Nightfire\BlockReference;
-
 /**
  * @phpstan-require-implements Strategy
  */
@@ -157,4 +154,3 @@ trait StrategyTrait
         return $errors;
     }
 }
-

@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace DecodeLabs\Nightfire\Layout;
 
 use Closure;
-use DecodeLabs\Coercion;
 use DecodeLabs\Exemplar\Element;
 use DecodeLabs\Exemplar\Writer;
 use DecodeLabs\Nightfire\Data\Area as AreaData;
